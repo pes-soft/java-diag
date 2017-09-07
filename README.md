@@ -4,10 +4,11 @@
 [![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/pes-soft/java-diag.svg)](http://isitmaintained.com/project/pes-soft/java-diag "Average time to resolve an issue")
 [![Percentage of issues still open](http://isitmaintained.com/badge/open/pes-soft/java-diag.svg)](http://isitmaintained.com/project/pes-soft/java-diag "Percentage of issues still open")
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Twitter](https://img.shields.io/twitter/url/https/github.com/pes-soft/java-diag.svg?style=social&style=flat-square)](https://twitter.com/intent/tweet?text=Java%20Application%20Diagnostic%20Helper%20Script&url=https://github.com/pes-soft/java-diag)
 
 **java-diag** is a shell script which assists system administrator with collection of information about running Java process in environments where diagnosis by native Java tools is not easily possible or available at all. Primary goal is to help with diagnosis of root cause for unexpected application behavior, such as non-responding application or high load on system resources.
 
-##### WARNING
+##### :exclamation: WARNING :exclamation:
 
 **java-diag** looks for running process based on certain criteria and then sends the kill signal to this process. If the selected process is not a Java, it might result in termination and/or data-loss. Make sure that you know how the tool works and how the process is selected, before actually allowing to use the kill signal.
 
