@@ -1,0 +1,12 @@
+sudo: false
+
+before_install:
+    sh --version
+
+addons:
+    apt:
+        packages:
+            shellcheck
+
+script:
+    shellcheck java-diag.sh
