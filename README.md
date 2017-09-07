@@ -4,6 +4,7 @@
 [![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/pes-soft/java-diag.svg)](http://isitmaintained.com/project/pes-soft/java-diag "Average time to resolve an issue")
 [![Percentage of issues still open](http://isitmaintained.com/badge/open/pes-soft/java-diag.svg)](http://isitmaintained.com/project/pes-soft/java-diag "Percentage of issues still open")
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Twitter](https://img.shields.io/twitter/url/https/github.com/pes-soft/java-diag.svg?style=social&style=flat-square)](https://twitter.com/intent/tweet?text=Wow:&url=%5Bobject%20Object%5D)
 
 **java-diag** is a shell script which assists system administrator with collection of information about running Java process in environments where diagnosis by native Java tools is not easily possible or available at all. Primary goal is to help with diagnosis of root cause for unexpected application behavior, such as non-responding application or high load on system resources.
 
@@ -30,20 +31,20 @@ cd /opt/apache-tomcat/logs
 ### Report Directory Content
 
 * *sys_procs*: List of all running processes and threads
-* *sys_user-~USERNAME~_procs*: List of running processes and threads of user *~USERNAME~*
+* *sys_user-USERNAME_procs*: List of running processes and threads of user *USERNAME*
 * *sys_netstat*: List of all network connections
 * *sys_openfiles*: List of all open files
-* *process_pid-~PIDNUM~_openfiles*: List of open files by process with PID *~PIDNUM~*
-* *process_pid-~PIDNUM~_ipconnections*: List of TCP and UDP connections by process with PID *~PIDNUM~*
-* *process_pid-~PIDNUM~_threads*: List of threads by process with PID *~PIDNUM~*
-* *process_pid-~PIDNUM~_running_threads*: List of threads with status *running* by process with PID *~PIDNUM~*
-* *process_pid-~PIDNUM~_busy_threads*: List of threads with higher percentual CPU usage than *0.0* by process with PID *~PIDNUM~*
-* *java_pid-~PIDNUM~_td*: Full thread dump of Java process with PID *~PIDNUM~*
-* *java_pid-~PIDNUM~_suspicious_threads*: List of stack traces for running and busy threads of Java process with PID *~PIDNUM~*
+* *process_pid-PIDNUM_openfiles*: List of open files by process with PID *PIDNUM*
+* *process_pid-PIDNUM_ipconnections*: List of TCP and UDP connections by process with PID *PIDNUM*
+* *process_pid-PIDNUM_threads*: List of threads by process with PID *PIDNUM*
+* *process_pid-PIDNUM_running_threads*: List of threads with status *running* by process with PID *PIDNUM*
+* *process_pid-PIDNUM_busy_threads*: List of threads with higher percentual CPU usage than *0.0* by process with PID *PIDNUM*
+* *java_pid-PIDNUM_td*: Full thread dump of Java process with PID *PIDNUM*
+* *java_pid-PIDNUM_suspicious_threads*: List of stack traces for running and busy threads of Java process with PID *PIDNUM*
 
 Notes:
 
-* *~NAMES~* are placeholders for actual values, which will depend on your setup.
+* *PIDNUM* and *USERNAME* are placeholders for actual values, which will depend on your setup.
 * Some of the files are optional and will be generated only in case of correct configuration ( thread dump requires kill signal enabled, global process list or list of open files requires specific parameter configuration, ... )
 
 ### Detail Usage Scenario
