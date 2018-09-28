@@ -20,7 +20,7 @@
 
 usage() {
   echo
-  echo "  Java Diag 0.2 - Java Application Diagnostic Helper Script"
+  echo "  Java Diag 0.3 - Java Application Diagnostic Helper Script"
   echo "   Bug reports, feature requests and downloads at https://github.com/pes-soft/java-diag"
   echo "   Author: Pessoft (dev@pessoft.com) - Licensed under GPLv3"
   echo
@@ -28,15 +28,14 @@ usage() {
   echo "    Purpose of this helper script is to assist with collection of information"
   echo "    about running Java process, which could help to identify the reason for some"
   echo "    unexpected behavior. Such behavior is usually non-responding application or"
-  echo "    application with high load on resources in time periods of no usage. One of"
-  echo "    the main features of the script is the sending of signal 3 (SIGQUIT) to"
-  echo "    a Java process (this invokes thread dump) and collection of the thread dump"
+  echo "    application with high load on resources during time period of no usage. Basic"
+  echo "    operation of the script is requesting a thread dump from Java process, usually by"
+  echo "    sending it a signal 3 (SIGQUIT) and collecting of the thread dump output"
   echo "    from a log file. Additionally some other system information is collected too"
-  echo "    (network connecitons, open files) and active threads are picked out from"
-  echo "    the thread dump with their stack trace included. Because this script was at"
-  echo "    first done primarily for applications running on Tomcat with OpenJDK and"
-  echo "    OracleJDK, currently only Tomcat profile is available and only OpenJDK and"
-  echo "    OracleJDK has been tested. Using the options however makes it possible to"
+  echo "    (network connections, open files) and active threads are picked out from"
+  echo "    the thread dump with their stack trace included. Because this script was created"
+  echo "    for assistance on Tomcat with OpenJDK or Oracle JDK Java, only such configurations"
+  echo "    have been tested and YMMV. Using the options however makes it possible to"
   echo "    fit the configuration of other Java applications as well."
   echo
   echo "  Options:"
@@ -70,16 +69,39 @@ usage() {
   echo "                            Shows this information"
   echo
   echo "  Profiles:"
-  echo "    tomcat      Sets defaults which expect start of the script from Tomcat's log"
-  echo "                directory."
+  echo "    tomcat      Sets defaults which expect the script to be started from"
+  echo "                Tomcat's log directory."
   echo "                command:  java\$"
   echo "                argument: Dcatalina.base=CWDPARENT"
-  echo "                log-file: CWDPARENT/logs/catalina.out)"
-  echo "    glassfish   Not available"
-  echo "    wildfly     Not available"
+  echo "                log-file: CWDPARENT/logs/catalina.out"
+  echo "    glassfish   (Experimental)"
+  echo "                Sets defaults which expect start of the script from"
+  echo "                Glassfish domain's log directory."
+  echo "                command:  java\$"
+  echo "                argument: domaindir CWDPARENT"
+  echo "                log-file: $asadmintag"
+  echo "    wildfly     (Experimental)"
+  echo "                Sets defaults which expect start of the script from"
+  echo "                Wildfly standalone's or domain's log directory."
+  echo "                command:  java\$"
+  echo "                argument: Djboss.server.log.dir=CWDPARENT/log (domain)"
+  echo "                argument: Dorg.jboss.boot.log.file=CWDPARENT/log (standalone)"
+  echo "                log-file: $wildflytag"
+  echo "    <unset>     Attempts profile auto-detection:"
+  echo "                  tomcat - if catalina.out is in current directory"
+  echo "                  glassfish - if server.log is in current directory and"
+  echo "                              3rd parent of current directory is glassfish"
+  echo "                  wildfly - if server.log is in current directory and"
+  echo "                              2nd parent of current directory is standalone"
+  echo "                              or 3rd parent is domain and 2nd parent is servers"
+  echo "   custom       Does not perform profile auto-detection, but relies on defaults"
+  echo "                and supplied arguments only."
   echo
   echo "    CWDPARENT is the parent of the current working directory, now:"
   echo "    '$cwd_parent'"
+  echo
+  echo "  Known Issues:"
+  echo "    Paths with white spaces might fail the diagnostics partially or completelly."
   echo
 }
 
@@ -121,7 +143,7 @@ parse_args() {
       '--debug')
         cfg_debug=1
         ;;
-      '-v'|'--help'|'--version'|'--usage'|'-v')
+      '--help'|'--version'|'--usage'|'-V')
         usage
         exit 1
         ;;
@@ -166,7 +188,7 @@ get_pids_filtered() {
   arg="$3"
   user="$4"
   awk "
-  ( \"$cmd\" == \"\" || \$10 ~ \"$cmd\" ) && \
+  ( \"$cmd\" == \"\" || \$9 ~ \"$cmd\" ) && \
   ( \"$user\" == \"\" || \$1 == \"$user\" ) && \
   ( \"$arg\" == \"\" || \$0 ~ \"$arg\" ) \
       { pids[\$2] = 1 }
@@ -321,6 +343,14 @@ get_td_new() {
   return 2
 }
 
+get_gclog_path_by_pid() {
+  local file pid
+  file="$1"
+  pid="$2"
+  awk "( \"$pid\" == \"\" || \$2 == \"$pid\" ) { print \$0 }" "$file" | grep -m 1 -o ' -Xloggc:\S\+' | sed s/'^ -Xloggc:'//
+  return $?
+}
+
 get_thread_from_td() {
   local file tid
   file="$1"
@@ -337,6 +367,27 @@ get_thread_from_td() {
 set_profile() {
   local profile cmd arg log dir
   profile="$1"
+  # profile autodetect
+  if [ -z "$profile" ]; then
+    log "DEBUG" "No profile set, attempting auto-detection"
+    if [ -f "./catalina.out" ]; then
+      profile="tomcat"
+    fi
+    if [ -f "./server.log" ]; then
+      if [ "$(basename "$cwd_parent")" = "standalone" ]; then
+        profile="wildfly"
+      fi
+      if [ "$(basename "$cwd_parent2")" = "servers" ]; then
+        if [ "$(basename "$cwd_parent3")" = "domain" ]; then
+          profile="wildfly"
+        fi
+      fi
+      if [ "$(basename "$cwd_parent3")" = "glassfish" ]; then
+        profile="glassfish"
+      fi
+    fi
+    [ -n "$profile" ] && log "INFO" "Auto-detection suggests profile '$profile'"
+  fi
   case "$profile" in
     'tomcat')
       cmd="java\$"
@@ -344,11 +395,28 @@ set_profile() {
       log="$cwd_parent/logs/catalina.out"
       dir="$cwd_parent/logs"
       ;;
+    'glassfish')
+      cmd="java\$"
+      arg="domaindir $cwd_parent"
+      #log="$asadmintag"
+      dir="$cwd_parent/logs"
+      ;;
+    'wildfly')
+      cmd="java\$"
+      #domain
+      arg="Djboss.server.log.dir=$cwd_parent/log"
+      #standalone
+      arg="Dorg.jboss.boot.log.file=$cwd_parent/log"
+      #log="$wildflytag"
+      dir="$cwd_parent/log"
+      ;;
+    ''|'custom')
+      ;;
     *)
       log "ERROR" "Unknown profile '$profile'"
       exit 1
   esac
-  log "INFO" "Setting profile '$profile'"
+  log "DEBUG" "Setting profile '$profile'"
   [ -z "$cfg_command" ] && cfg_command="$cmd"
   [ -z "$cfg_argument" ] && cfg_argument="$arg"
   [ -z "$cfg_log_file" ] && cfg_log_file="$log"
@@ -356,23 +424,29 @@ set_profile() {
 }
 
 # main
-
 cwd_parent=$(dirname "$(pwd)")
-proc_attributes="user:16,pid,ppid,tid,%cpu,%mem,time,stat,start,command"
+cwd_parent2=$(dirname "$cwd_parent")
+cwd_parent3=$(dirname "$cwd_parent2")
+proc_attributes="user:16,pid,ppid,tid,%cpu,%mem,time,stat,command"
 td_header_start="Full thread dump"
 start_today=$(date +%Y-%m-%d)
 journaltag="__journal__"
+asadmintag="__asadmin__"
+wildflytag="__wildfly__"
 
 # arguments
+unset cfg_profile cfg_log_file cfg_reports_dir cfg_command cfg_argument
+unset cfg_debug cfg_ps_all cfg_username cfg_lsof_all cfg_use_kill cfg_multi_pid
 parse_args "$@"
 
 # profiles
-[ -n "$cfg_profile" ] && set_profile "$cfg_profile"
+set_profile "$cfg_profile"
 
 # defaults
 [ -z "$cfg_command" ] && cfg_command="java\$"
+[ "$cfg_command" = "java\$" ] && cfg_use_kill=1
 [ -z "$cfg_reports_dir" ] && cfg_reports_dir="."
-report_root="$cfg_reports_dir/java-diag-$(date -Iseconds)-$$"
+report_root="$cfg_reports_dir/java-diag-$(date +%Y-%m-%d_%H-%M-%S%z)-$$"
 lsof_bin=$(which lsof)
 
 # checks
@@ -404,7 +478,7 @@ get_system_netstats > "$report_root/sys_netstat"
   get_system_openfiles > "$report_root/sys_openfiles"
 }
 
-log "DEBUG" "Parsing PIDs from processes"
+log "DEBUG" "Parsing PIDs from processes file"
 process_pids=( $(get_pids_filtered "$report_root/$src_procs" "$cfg_command" "$cfg_argument") )
 process_pids_num=${#process_pids[@]}
 
@@ -423,6 +497,8 @@ else
     }
 fi
 
+log "INFO" "Java Diagnostics Start"
+
 for process_pid in "${process_pids[@]}"; do
   log "INFO" "Getting open files for PID '$process_pid'"
   get_system_openfiles "$process_pid" > "$report_root/process_pid-${process_pid}_openfiles"
@@ -432,9 +508,18 @@ for process_pid in "${process_pids[@]}"; do
   get_threads_by_pid "$report_root/$src_procs" "$process_pid" > "$report_root/process_pid-${process_pid}_threads"
   get_threads_running "$report_root/process_pid-${process_pid}_threads" > "$report_root/process_pid-${process_pid}_running_threads"
   get_threads_active "$report_root/process_pid-${process_pid}_threads" > "$report_root/process_pid-${process_pid}_busy_threads"
+  log "DEBUG" "Looking for GClog path for PID '$process_pid'"
+  gclog=$(get_gclog_path_by_pid "$report_root/$src_procs" "$process_pid")
+  if [ -n "$gclog" ]; then
+    log "DEBUG" "GClog path found as '$gclog'"
+    if [ -f "$gclog" ]; then
+      log "INFO" "Getting GC log for PID '$process_pid'"
+      cat "$gclog" > "$report_root/java_pid-${pid}_gc.log"
+    fi
+  fi
 
   if [ "$cfg_use_kill" = "1" ]; then
-    log "INFO" "Sending signal to PID '$process_pid' and getting thread dump from log file '$cfg_log_file'"
+    log "INFO" "Sending signal to PID '$process_pid' and getting thread dump"
     get_td_new "$cfg_log_file" "$process_pid"
     ret=$?
     if [ $ret -eq 0 ]; then
@@ -452,7 +537,8 @@ for process_pid in "${process_pids[@]}"; do
       log "WARNING" "Thread dump has been not retrieved [$ret]"
     fi
   else
-    log "INFO" "Sending signal to process not allowed by options, no thread dump will be retrieved"
+    log "INFO" "Sending a signal to the process is not allowed by options, no thread dump will be retrieved"
     log "INFO" "If PID of java process has been found, use --use-kill option to get thread dump"
   fi
 done
+log "INFO" "Java Diagnostics End"

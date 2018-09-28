@@ -12,6 +12,21 @@
 
 **java-diag** looks for running process based on certain criteria and then sends the kill signal to this process. If the selected process is not a Java, it might result in termination and/or data-loss. Make sure that you know how the tool works and how the process is selected, before actually allowing to use the kill signal.
 
+### Requirements
+
+Script should run on any modern Linux system with bash installed, but primarily it has been tested on Fedora and RHEL.
+
+* *lsof*: provides more information about open files (optional)
+
+### Installation
+
+Script does not require any specific location for installation. It just needs to be available for the user running it. If you want to have it system-wide available, you can use for example `/opt`, assuming you can write there.
+
+```sh
+cd /opt
+git clone https://github.com/pes-soft/java-diag.git java-diag
+```
+
 ### Usage Examples
 
 **Usage**: Initial test recon. Change directory to Tomcat logs and perform search for the target process. No kill signal is sent, just basic info gathered. Output provides verification whether one correct PID has been found.
