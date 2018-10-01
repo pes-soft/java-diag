@@ -514,7 +514,7 @@ for process_pid in "${process_pids[@]}"; do
     log "DEBUG" "GClog path found as '$gclog'"
     if [ -f "$gclog" ]; then
       log "INFO" "Getting GC log for PID '$process_pid'"
-      cat "$gclog" > "$report_root/java_pid-${pid}_gc.log"
+      cat "$gclog" > "$report_root/java_pid-${process_pid}_gc.log"
     fi
   fi
 
